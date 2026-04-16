@@ -22,7 +22,6 @@ class Linear(nn.Module):
         
         # 2. 初始化权重 (截断正态分布)  Xavier 初始化
         # 根据 3.4.1: sigma^2 = 2 / (din + dout)
-        
         '''
         Xavier 初始化源于 Glorot & Bengio (2010) 的经典论文。其推导基于以下假设：
         权重 W、输入 x、梯度均独立同分布,且期望为 0。
@@ -53,7 +52,7 @@ class Embedding(nn.Module):
         self.weight = nn.Parameter(torch.empty((num_embeddings, embedding_dim), **factory_kwargs))
         std = 1.0
         nn.init.trunc_normal_(self.weight, mean=0.0, std=std, a=-3*std, b=3*std)
-
+        #与linear类类似 采用截断的初始化方法 embdding选用标准正态分布
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
 
         return self.weight[token_ids]
@@ -64,6 +63,10 @@ class RMSNorm(nn.Module):
         super().__init__()
         factory_kwargs = {'device': device, 'dtype': dtype}
         # 1. 必须初始化为全 1 (ones)
+        """
+        其中 weight（缩放参数）初始化为 1.0，bias（平移参数）初始化为 0.0。
+        这是刻意设计的恒等映射起点（Identity Initialization）。
+        """
         self.weight = nn.Parameter(torch.ones(d_model, **factory_kwargs))
         self.eps = eps
 
