@@ -28,10 +28,16 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    # raise NotImplementedError
-    return in_features@weights.T
-
+    from cs336_basics.nn import Linear  # 导入你写的类
+    
+    # 1. 实例化
+    layer = Linear(d_in, d_out, device=in_features.device, dtype=in_features.dtype)
+    
+    # 2. 加载权重
+    layer.load_state_dict({"weight": weights})
+    
+    # 3. 运行前向传播
+    return layer(in_features)
 
 def run_embedding(
     vocab_size: int,
@@ -52,8 +58,12 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    #raise NotImplementedError
-    return weights[token_ids]
+    from cs336_basics.nn import Embedding
+
+    embedding = Embedding(vocab_size, d_model)
+
+    embedding.load_state_dict({"weight": weights})
+    return embedding(token_ids)
 
 def run_swiglu(
     d_model: int,
@@ -84,17 +94,27 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    gate = run_silu(in_features@w1_weight.T)
-    value = in_features@w3_weight.T
-    value_df = gate*value
-    return value_df@w2_weight.T
-    # raise NotImplementedError
+    from cs336_basics.nn import SwiGLU  # 确保导入路径正确
+
+    # 1. 实例化模块
+    # 确保 device 和 dtype 与输入数据一致
+    model = SwiGLU(d_model, d_ff, device=in_features.device, dtype=in_features.dtype)
+
+    # 2. 加载测试提供的权重
+    # 注意：w1, w2, w3 是你在类中定义的属性名
+    # .data 赋值可以直接覆盖 Parameter 中的张量内容
+    model.w1.weight.data = w1_weight
+    model.w2.weight.data = w2_weight
+    model.w3.weight.data = w3_weight
+
+    # 3. 前向传播
+    return model(in_features)
 
 
 def run_scaled_dot_product_attention(
     Q: Float[Tensor, " ... queries d_k"],
     K: Float[Tensor, " ... keys d_k"],
-    V: Float[Tensor, " ... keys d_v"],
+    V: Float[Tensor, " ... values d_v"],
     mask: Bool[Tensor, " ... queries keys"] | None = None,
 ) -> Float[Tensor, " ... queries d_v"]:
     """
@@ -104,21 +124,15 @@ def run_scaled_dot_product_attention(
     Args:
         Q (Float[Tensor, " ... queries d_k"]): Query tensor
         K (Float[Tensor, " ... keys d_k"]): Key tensor
-        V (Float[Tensor, " ... keys d_v"]): Values tensor
+        V (Float[Tensor, " ... values d_v"]): Values tensor
         mask (Bool[Tensor, " ... queries keys"] | None): Mask tensor
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    dk = Q.shape[-1]
-    scores = torch.einsum('...qd,...kd->...qk', Q, K) / (dk ** 0.5)
-    if mask is not None:
-        # mask 中 True 的位置表示"需要被遮住"
-        scores = scores.masked_fill(mask, float('-inf'))
-    attn = run_softmax(scores,dim=-1)
-    # attn = torch.softmax(scores,dim=-1)
-    value = torch.einsum('...qk,...kv->...qv',attn,V)
-    return value
-    # raise NotImplementedError
+    
+    from cs336_basics.nn import scaled_dot_product_attention
+    return scaled_dot_product_attention(Q, K, V, mask=mask)
+
 
 
 def run_multihead_self_attention(
@@ -392,10 +406,17 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    mean_square = torch.mean(in_features**2,dim = -1 , keepdim=True)
-    rms = torch.sqrt(mean_square+eps)
-    return in_features*weights/rms
-    # raise NotImplementedError
+
+    from cs336_basics.nn import RMSNorm  # 导入你写的类
+
+    rmsnorm = RMSNorm(eps = eps, d_model = d_model)
+    rmsnorm.load_state_dict({'weight': weights})
+
+
+
+    return rmsnorm(in_features)
+
+    
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -409,8 +430,9 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    return in_features*torch.sigmoid(in_features)
-    #raise NotImplementedError
+    
+    from cs336_basics.nn import silu_fn
+    return silu_fn(in_features)
 
 
 def run_get_batch(
@@ -582,8 +604,9 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    from cs336_basics.tokenizer import BPETokenizer 
-    return BPETokenizer(vocab, merges, special_tokens)
+    # from cs336_basics.tokenizer import BPETokenizer 
+    # return BPETokenizer(vocab, merges, special_tokens)
+    raise NotImplementedError
 
 
 def run_train_bpe(
