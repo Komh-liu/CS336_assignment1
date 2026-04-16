@@ -29,7 +29,8 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    # raise NotImplementedError
+    return in_features@weights.T
 
 
 def run_embedding(
@@ -51,8 +52,8 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
-
+    #raise NotImplementedError
+    return weights[token_ids]
 
 def run_swiglu(
     d_model: int,
@@ -83,7 +84,11 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    gate = run_silu(in_features@w1_weight.T)
+    value = in_features@w3_weight.T
+    value_df = gate*value
+    return value_df@w2_weight.T
+    # raise NotImplementedError
 
 
 def run_scaled_dot_product_attention(
@@ -104,7 +109,16 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    dk = Q.shape[-1]
+    scores = torch.einsum('...qd,...kd->...qk', Q, K) / (dk ** 0.5)
+    if mask is not None:
+        # mask 中 True 的位置表示"需要被遮住"
+        scores = scores.masked_fill(mask, float('-inf'))
+    attn = run_softmax(scores,dim=-1)
+    # attn = torch.softmax(scores,dim=-1)
+    value = torch.einsum('...qk,...kv->...qv',attn,V)
+    return value
+    # raise NotImplementedError
 
 
 def run_multihead_self_attention(
@@ -378,7 +392,10 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    mean_square = torch.mean(in_features**2,dim = -1 , keepdim=True)
+    rms = torch.sqrt(mean_square+eps)
+    return in_features*weights/rms
+    # raise NotImplementedError
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -392,7 +409,8 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return in_features*torch.sigmoid(in_features)
+    #raise NotImplementedError
 
 
 def run_get_batch(
@@ -431,7 +449,12 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
         Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
         softmax normalizing the specified `dim`.
     """
-    raise NotImplementedError
+
+    exp_z = in_features - torch.max(in_features, dim=dim, keepdim=True).values
+    exp_in = torch.exp(exp_z)
+    exp_sum = torch.sum(exp_in,dim=-1,keepdim=True)
+    return exp_in/exp_sum
+    # raise NotImplementedError
 
 
 def run_cross_entropy(
@@ -559,7 +582,8 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    from cs336_basics.tokenizer import BPETokenizer 
+    return BPETokenizer(vocab, merges, special_tokens)
 
 
 def run_train_bpe(
