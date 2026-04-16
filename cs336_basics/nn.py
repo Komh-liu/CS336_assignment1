@@ -22,6 +22,16 @@ class Linear(nn.Module):
         
         # 2. 初始化权重 (截断正态分布)  Xavier 初始化
         # 根据 3.4.1: sigma^2 = 2 / (din + dout)
+        
+        '''
+        Xavier 初始化源于 Glorot & Bengio (2010) 的经典论文。其推导基于以下假设：
+        权重 W、输入 x、梯度均独立同分布,且期望为 0。
+        线性层输出 y = Wx,则 Var(y) = din · Var(W) · Var(x)。
+        为了在深层网络中保持信号尺度稳定，我们希望：
+        前向传播:Var(y) ≈ Var(x) ⟹ Var(W) ≈ 1 / din
+        反向传播：梯度回传时同理要求 Var(W) ≈ 1 / dout
+        由于无法同时严格满足两个条件，论文提出取两者的折中值（调和平均形式）：
+        '''
         std = (2.0 / (in_features + out_features)) ** 0.5
         # PDF 要求截断在 [-3sigma, 3sigma]
         nn.init.trunc_normal_(self.weight, mean=0.0, std=std, a=-3*std, b=3*std)
