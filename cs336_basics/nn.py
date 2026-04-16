@@ -177,3 +177,37 @@ def scaled_dot_product_attention(
     
     return output
 
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        max_seq_len: int = None,
+        theta: float = None,
+        device=None,
+        dtype=None
+    ):
+        super().__init__()
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        self.d_model = d_model
+        self.num_heads = num_heads
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
+        self.d_k = d_model // num_heads
+        self.q_proj = Linear(d_model, d_model, **factory_kwargs)
+        self.k_proj = Linear(d_model, d_model, **factory_kwargs)
+        self.v_proj = Linear(d_model, d_model, **factory_kwargs)
+        self.output_proj = Linear(d_model, d_model, **factory_kwargs)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None, token_positions: torch.Tensor = None):
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
+        q = rearrange(q, "... s (h d) -> ... h s d", h=self.num_heads)
+        k = rearrange(k, "... s (h d) -> ... h s d", h=self.num_heads)
+        v = rearrange(v, "... s (h d) -> ... h s d", h=self.num_heads)
+        if mask is None:
+            seq_len = x.shape[-2]
+            mask = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device))
+        out = scaled_dot_product_attention(q, k, v, mask)
+        out = rearrange(out, "... h s d -> ... s (h d)", h=self.num_heads)
+        return self.output_proj(out)
